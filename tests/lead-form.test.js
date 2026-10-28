@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  RECIPIENT, ENDPOINT, FIELD_NAMES, buildPayload, readAcceptance, sendLead, bindLeadForm
+  FORM_ID, ENDPOINT, FIELD_NAMES, buildPayload, readAcceptance, sendLead, bindLeadForm
 } = require('../lead-form.js');
 
 function sampleData(extra = {}) {
@@ -59,7 +59,7 @@ function fixture(fetchImpl, extraOptions = {}) {
 
 test('whitespace names and invalid phones are rejected before sending, and corrections can retry', async () => {
   let calls = 0;
-  const f = fixture(async () => { calls++; return response({success:true}); });
+  const f = fixture(async () => { calls++; return response({ ok: true }); });
   f.contactFields[0].value = '   ';
   await f.submit();
   assert.equal(calls, 0);
@@ -80,20 +80,21 @@ test('payload keeps only the eight text fields and fixed provider controls', () 
     _autoresponse: 'Do not send', _subject: 'Tampered', _replyto: 'unwanted@example.com',
     attachment: new Blob(['fake image']), recipient: 'unwanted@example.com'
   }));
-  assert.deepEqual(Object.keys(payload), [...FIELD_NAMES, '_subject', '_template', '_captcha']);
+  // Formspree only needs the eight data fields plus _subject for the email subject line.
+  assert.deepEqual(Object.keys(payload), [...FIELD_NAMES, '_subject']);
   assert.equal(payload.first_name, 'Test');
   assert.equal(payload.email, 'customer@example.com');
   assert.equal(payload._subject, 'New Free Estimate Request — Alaska Handyman Services');
   assert.equal(buildPayload(sampleData({ message: new Blob(['not text']) })).message, '');
 });
 
-test('request uses the sole recipient, JSON, and no cookies or alternative destinations', async () => {
+test('request uses the Formspree endpoint, JSON encoding, and no cookies', async () => {
   let call;
   const result = await sendLead(sampleData(), {
-    fetchImpl: async (url, options) => { call = { url, options }; return response({ success: 'true' }); }
+    fetchImpl: async (url, options) => { call = { url, options }; return response({ ok: true }); }
   });
-  assert.equal(RECIPIENT, 'alaskahandymanservices907@gmail.com');
-  assert.equal(call.url, 'https://formsubmit.co/ajax/alaskahandymanservices907@gmail.com');
+  assert.equal(FORM_ID, 'mqppbolp');
+  assert.equal(call.url, 'https://formspree.io/f/mqppbolp');
   assert.equal(call.url, ENDPOINT);
   assert.equal(call.options.method, 'POST');
   assert.equal(call.options.headers['Content-Type'], 'application/json');
@@ -102,29 +103,18 @@ test('request uses the sole recipient, JSON, and no cookies or alternative desti
   assert.deepEqual(result, { accepted: true });
 });
 
-test('only literal true or string true indicate provider acceptance', async () => {
-  for (const success of [true, 'true']) assert.deepEqual(await readAcceptance(response({ success })), { accepted: true });
-  for (const success of [false, 'false', 1, '1', undefined, 'TRUE']) {
-    await assert.rejects(readAcceptance(response({ success })), { code: 'rejected' });
+test('only ok:true indicates provider acceptance; any other value is rejected', async () => {
+  assert.deepEqual(await readAcceptance(response({ ok: true })), { accepted: true });
+  for (const ok of [false, 'true', 1, '1', undefined, null, 'TRUE']) {
+    await assert.rejects(readAcceptance(response({ ok })), { code: 'rejected' });
   }
 });
 
 test('HTTP failures, invalid JSON and unexpected response shapes never become success', async () => {
-  await assert.rejects(readAcceptance(response({ success: true }, false)), { code: 'http' });
+  await assert.rejects(readAcceptance(response({ ok: true }, false)), { code: 'http' });
   await assert.rejects(readAcceptance({ ok: true, json: async () => { throw new SyntaxError(); } }), { code: 'invalid-response' });
   for (const body of [null, [], 'Thank you', 42]) {
     await assert.rejects(readAcceptance(response(body)), { code: 'invalid-response' });
-  }
-});
-
-test('activation and check-email messages never claim lead acceptance', async () => {
-  for (const message of [
-    'This form needs Activation.', 'Please check your email.',
-    'Your form will be actived once you click the link.', 'Confirm your email to continue.'
-  ]) {
-    for (const success of [true, 'true', false]) {
-      await assert.rejects(readAcceptance(response({ success, message })), { code: 'activation' });
-    }
   }
 });
 
@@ -149,7 +139,7 @@ test('deadline aborts a stalled request and also covers a stalled response body'
 
 test('invalid form does not submit, reset, or reveal success', async () => {
   let calls = 0;
-  const f = fixture(async () => { calls++; return response({ success: true }); });
+  const f = fixture(async () => { calls++; return response({ ok: true }); });
   f.form.valid = false;
   await f.submit();
   assert.equal(calls, 0);
@@ -167,7 +157,7 @@ test('one request at a time; confirmed acceptance resets and focuses success exa
   assert.equal(f.form.attributes['aria-busy'], 'true');
   await f.submit();
   assert.equal(calls, 1);
-  resolveRequest(response({ success: 'true', message: 'The form was submitted successfully.' }));
+  resolveRequest(response({ ok: true }));
   await first;
   assert.equal(f.form.resets, 1);
   assert.equal(f.form.hidden, true);
@@ -184,7 +174,7 @@ test('one request at a time; confirmed acceptance resets and focuses success exa
 
 test('failure preserves all input and enables a manual retry; success follows only acceptance', async () => {
   let calls = 0;
-  const f = fixture(async () => ++calls === 1 ? response({ success: 'false' }) : response({ success: true }));
+  const f = fixture(async () => ++calls === 1 ? response({ ok: false }) : response({ ok: true }));
   const before = new Map(f.form.values);
   await f.submit();
   assert.deepEqual(f.form.values, before);
@@ -204,12 +194,7 @@ test('failure preserves all input and enables a manual retry; success follows on
   assert.equal(f.ui.success.hidden, false);
 });
 
-test('activation and timeout expose recovery without erasing the request', async () => {
-  const activation = fixture(async () => response({ success: true, message: 'Activate your form.' }));
-  await activation.submit();
-  assert.match(activation.ui.errorMessage.textContent, /temporarily unavailable/);
-  assert.equal(activation.form.resets, 0);
-  assert.equal(activation.ui.success.hidden, true);
+test('timeout exposes recovery without erasing the request', async () => {
   const timeout = fixture(async () => new Promise(() => {}), { timeoutMs: 5 });
   await timeout.submit();
   assert.match(timeout.ui.errorMessage.textContent, /cannot tell whether/);
@@ -218,7 +203,7 @@ test('activation and timeout expose recovery without erasing the request', async
 });
 
 test('binding the same form twice does not attach duplicate submit handlers', () => {
-  const f = fixture(async () => response({ success: true }));
+  const f = fixture(async () => response({ ok: true }));
   assert.equal(bindLeadForm(f.form, f.ui, f.options), f.binding);
   assert.equal(f.form.listeners.length, 1);
 });

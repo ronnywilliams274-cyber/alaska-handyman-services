@@ -2,8 +2,8 @@
 (function (root) {
   'use strict';
 
-  const RECIPIENT = 'alaskahandymanservices907@gmail.com';
-  const ENDPOINT = 'https://formsubmit.co/ajax/' + RECIPIENT;
+  const FORM_ID = 'mqppbolp';
+  const ENDPOINT = 'https://formspree.io/f/' + FORM_ID;
   const FIELD_NAMES = Object.freeze([
     'first_name', 'last_name', 'phone', 'email',
     'service', 'location', 'message', 'timeline'
@@ -26,8 +26,7 @@
       payload[name] = typeof value === 'string' ? value.trim() : '';
     });
     payload._subject = 'New Free Estimate Request — Alaska Handyman Services';
-    payload._template = 'table';
-    payload._captcha = 'false';
+    // _template and _captcha are FormSubmit-specific; Formspree does not use them.
     return payload;
   }
 
@@ -42,15 +41,8 @@
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new LeadError('invalid-response');
     }
-    const message = typeof data.message === 'string' ? data.message : '';
-    // Activation responses are not delivery confirmations, even with success:true.
-    // Match all known FormSubmit activation/setup wording variants, including
-    // "Email not activated", "form not yet active", "setup required", "pending",
-    // and the standard "check your email / activate" phrases.
-    if (/activat|actived|active\b|pending|setup.{0,30}requir|confirm.{0,60}(?:email|form)|(?:check|verify).{0,40}(?:email|inbox)|not.{0,20}(?:verified|registered)|email.{0,30}not.{0,20}(?:found|known|active)/i.test(message)) {
-      throw new LeadError('activation');
-    }
-    if (data.success !== true && data.success !== 'true') {
+    // Formspree signals acceptance with {ok: true}. Any other value is a rejection.
+    if (data.ok !== true) {
       throw new LeadError('rejected');
     }
     return { accepted: true };
@@ -62,9 +54,8 @@
     const fetchImpl = options.fetchImpl || root.fetch.bind(root);
     const Controller = options.AbortControllerImpl || root.AbortController;
     const controller = new Controller();
-    // FormSubmit's spam-filter pipeline and shared infrastructure can take
-    // longer than 20 s under load, causing false timeout errors on real submissions.
-    // 45 s gives the server realistic headroom while still protecting the user.
+    // Formspree's infrastructure is fast; 45 s covers any transient server latency
+    // while still protecting the user from an indefinitely stalled request.
     const timeoutMs = options.timeoutMs === undefined ? 45000 : options.timeoutMs;
     let timer;
     const deadline = new Promise(function (_, reject) {
@@ -95,9 +86,6 @@
   }
 
   function errorMessage(error) {
-    if (error.code === 'activation') {
-      return 'Online requests are temporarily unavailable. Your details are still here. Please email us directly using the link below.';
-    }
     if (error.code === 'timeout') {
       return 'Confirmation is taking too long, so we cannot tell whether your request was accepted. Your details are still here. You can retry or email us directly; please mention if you already tried this form.';
     }
@@ -197,10 +185,10 @@
   function init(document) {
     // Older browsers can still use the HTML form's normal POST action.
     if (!root.fetch || !root.FormData || !root.AbortController) return;
-    // FormSubmit's AJAX endpoint requires a secure HTTPS origin. On file:// or
+    // Formspree's AJAX endpoint requires a secure HTTPS origin. On file:// or
     // plain http:// the cross-origin fetch is blocked by CORS and either hangs
-    // or throws a network error that masquerades as a timeout. Skip the JS handler
-    // so the native <form action="…"> POST fallback takes over instead.
+    // or throws a network error. Skip the JS handler so the native
+    // <form action="…"> POST fallback takes over instead.
     if (root.location && root.location.protocol !== 'https:') return;
     const form = document.getElementById('leadForm');
     if (!form) return;
@@ -215,7 +203,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { RECIPIENT, ENDPOINT, FIELD_NAMES, LeadError, buildPayload, readAcceptance, sendLead, bindLeadForm };
+    module.exports = { FORM_ID, ENDPOINT, FIELD_NAMES, LeadError, buildPayload, readAcceptance, sendLead, bindLeadForm };
   } else if (root.document) {
     if (root.document.readyState === 'loading') {
       root.document.addEventListener('DOMContentLoaded', function () { init(root.document); }, { once: true });
