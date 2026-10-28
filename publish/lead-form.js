@@ -44,7 +44,10 @@
     }
     const message = typeof data.message === 'string' ? data.message : '';
     // Activation responses are not delivery confirmations, even with success:true.
-    if (/activat|actived|confirm.{0,60}(?:email|form)|(?:check|verify).{0,40}(?:email|inbox)/i.test(message)) {
+    // Match all known FormSubmit activation/setup wording variants, including
+    // "Email not activated", "form not yet active", "setup required", "pending",
+    // and the standard "check your email / activate" phrases.
+    if (/activat|actived|active\b|pending|setup.{0,30}requir|confirm.{0,60}(?:email|form)|(?:check|verify).{0,40}(?:email|inbox)|not.{0,20}(?:verified|registered)|email.{0,30}not.{0,20}(?:found|known|active)/i.test(message)) {
       throw new LeadError('activation');
     }
     if (data.success !== true && data.success !== 'true') {
@@ -59,7 +62,10 @@
     const fetchImpl = options.fetchImpl || root.fetch.bind(root);
     const Controller = options.AbortControllerImpl || root.AbortController;
     const controller = new Controller();
-    const timeoutMs = options.timeoutMs === undefined ? 20000 : options.timeoutMs;
+    // FormSubmit's spam-filter pipeline and shared infrastructure can take
+    // longer than 20 s under load, causing false timeout errors on real submissions.
+    // 45 s gives the server realistic headroom while still protecting the user.
+    const timeoutMs = options.timeoutMs === undefined ? 45000 : options.timeoutMs;
     let timer;
     const deadline = new Promise(function (_, reject) {
       timer = setTimeout(function () {
@@ -191,6 +197,11 @@
   function init(document) {
     // Older browsers can still use the HTML form's normal POST action.
     if (!root.fetch || !root.FormData || !root.AbortController) return;
+    // FormSubmit's AJAX endpoint requires a secure HTTPS origin. On file:// or
+    // plain http:// the cross-origin fetch is blocked by CORS and either hangs
+    // or throws a network error that masquerades as a timeout. Skip the JS handler
+    // so the native <form action="…"> POST fallback takes over instead.
+    if (root.location && root.location.protocol !== 'https:') return;
     const form = document.getElementById('leadForm');
     if (!form) return;
     const ui = {
