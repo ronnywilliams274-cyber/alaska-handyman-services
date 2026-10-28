@@ -2,8 +2,8 @@
 (function (root) {
   'use strict';
 
-  const FORM_ID = 'mqppbolp';
-  const ENDPOINT = 'https://formspree.io/f/' + FORM_ID;
+  const FORM_ID   = 'mqppbolp';
+  const ENDPOINT  = 'https://formspree.io/f/' + FORM_ID;
   const FIELD_NAMES = Object.freeze([
     'first_name', 'last_name', 'phone', 'email',
     'service', 'location', 'message', 'timeline'
@@ -25,8 +25,7 @@
       const value = formData.get(name);
       payload[name] = typeof value === 'string' ? value.trim() : '';
     });
-    payload._subject = 'New Free Estimate Request — Alaska Handyman Services';
-    // _template and _captcha are FormSubmit-specific; Formspree does not use them.
+    payload._subject = 'New Free Estimate Request - Alaska Handyman Services';
     return payload;
   }
 
@@ -41,7 +40,7 @@
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new LeadError('invalid-response');
     }
-    // Formspree signals acceptance with {ok: true}. Any other value is a rejection.
+    // Formspree signals acceptance with {ok: true}.
     if (data.ok !== true) {
       throw new LeadError('rejected');
     }
@@ -51,16 +50,15 @@
   async function sendLead(formData, options) {
     options = options || {};
     if (formData.get('_honey')) throw new LeadError('validation');
-    const fetchImpl = options.fetchImpl || root.fetch.bind(root);
-    const Controller = options.AbortControllerImpl || root.AbortController;
-    const controller = new Controller();
-    // Formspree's infrastructure is fast; 45 s covers any transient server latency
-    // while still protecting the user from an indefinitely stalled request.
-    const timeoutMs = options.timeoutMs === undefined ? 45000 : options.timeoutMs;
+    const fetchImpl       = options.fetchImpl        || root.fetch.bind(root);
+    const Controller      = options.AbortControllerImpl || root.AbortController;
+    const controller      = new Controller();
+    // 10 s is plenty for Formspree's infrastructure while protecting the user
+    // from an indefinitely stalled connection.
+    const timeoutMs = options.timeoutMs === undefined ? 10000 : options.timeoutMs;
     let timer;
     const deadline = new Promise(function (_, reject) {
       timer = setTimeout(function () {
-        // Reject before aborting so a timeout keeps its distinct, honest message.
         reject(new LeadError('timeout'));
         controller.abort();
       }, timeoutMs);
@@ -68,12 +66,12 @@
     try {
       const request = Promise.resolve().then(function () {
         return fetchImpl(ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          credentials: 'omit',
+          method:         'POST',
+          headers:        { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          credentials:    'omit',
           referrerPolicy: 'strict-origin-when-cross-origin',
-          signal: controller.signal,
-          body: JSON.stringify(buildPayload(formData))
+          signal:         controller.signal,
+          body:           JSON.stringify(buildPayload(formData))
         });
       }).then(readAcceptance);
       return await Promise.race([request, deadline]);
@@ -87,7 +85,7 @@
 
   function errorMessage(error) {
     if (error.code === 'timeout') {
-      return 'Confirmation is taking too long, so we cannot tell whether your request was accepted. Your details are still here. You can retry or email us directly; please mention if you already tried this form.';
+      return 'Our server took too long to respond. Please try again — your details are still here. If this keeps happening, email us directly.';
     }
     if (error.code === 'validation') {
       return 'We could not send this request. Please email us directly using the link below.';
@@ -116,7 +114,7 @@
     const FormDataImpl = options.FormDataImpl || root.FormData;
     const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
     const originalLabel = submitButton ? submitButton.textContent : '';
-    let pending = false;
+    let pending  = false;
     let accepted = false;
 
     // Native required validation accepts spaces; reject unusable contact values.
@@ -126,7 +124,7 @@
         let message = '';
         if (!field.value.trim()) message = 'Please enter your ' + (field.name === 'phone' ? 'phone number.' : field.name.replace('_', ' ') + '.');
         if (field.name === 'phone' && field.value.trim()) {
-          const base = field.value.replace(/(?:ext\.?|x|#)\s*\d+\s*$/i, '');
+          const base  = field.value.replace(/(?:ext\.?|x|#)\s*\d+\s*$/i, '');
           const count = base.replace(/\D/g, '').length;
           if (count < 7 || count > 15 || !/^[+\d\s().-]+$/.test(base)) message = 'Please enter a phone number with 7 to 15 digits.';
         }
@@ -144,9 +142,9 @@
       pending = true;
       hide(ui.error);
       hide(ui.success);
-      ui.status.textContent = 'Sending your request…';
+      if (ui.status) ui.status.textContent = 'Sending your request...';
       form.setAttribute('aria-busy', 'true');
-      // Capture the data before locking fields, then keep that snapshot stable.
+
       let controls = [];
       try {
         const formData = new FormDataImpl(form);
@@ -155,17 +153,17 @@
           control.disabled = true;
           return state;
         });
-        if (submitButton) submitButton.textContent = 'Sending…';
+        if (submitButton) submitButton.textContent = 'Sending...';
         await sendLead(formData, options);
         accepted = true;
         form.reset();
         hide(form);
         show(ui.success);
-        ui.status.textContent = '';
+        if (ui.status) ui.status.textContent = '';
         focusMessage(ui.success);
       } catch (error) {
-        ui.errorMessage.textContent = errorMessage(error);
-        ui.status.textContent = '';
+        if (ui.errorMessage) ui.errorMessage.textContent = errorMessage(error);
+        if (ui.status) ui.status.textContent = '';
         show(ui.error);
         focusMessage(ui.error);
       } finally {
@@ -185,18 +183,17 @@
   function init(document) {
     // Older browsers can still use the HTML form's normal POST action.
     if (!root.fetch || !root.FormData || !root.AbortController) return;
-    // Formspree's AJAX endpoint requires a secure HTTPS origin. On file:// or
-    // plain http:// the cross-origin fetch is blocked by CORS and either hangs
-    // or throws a network error. Skip the JS handler so the native
-    // <form action="…"> POST fallback takes over instead.
-    if (root.location && root.location.protocol !== 'https:') return;
+    // NOTE: No protocol guard — Formspree's CORS policy allows submissions
+    // from both https:// and http:// origins. Removing the guard ensures
+    // the JS Ajax handler always attaches instead of falling through to a
+    // native POST that redirects the user away to Formspree's own page.
     const form = document.getElementById('leadForm');
     if (!form) return;
     const ui = {
-      success: document.getElementById('formSuccess'),
-      error: document.getElementById('formError'),
+      success:      document.getElementById('formSuccess'),
+      error:        document.getElementById('formError'),
       errorMessage: document.getElementById('formErrorMessage'),
-      status: document.getElementById('formStatus')
+      status:       document.getElementById('formStatus')
     };
     if (!ui.success || !ui.error || !ui.errorMessage || !ui.status) return;
     bindLeadForm(form, ui);

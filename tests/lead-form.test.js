@@ -1,4 +1,4 @@
-const test = require('node:test');
+﻿const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   FORM_ID, ENDPOINT, FIELD_NAMES, buildPayload, readAcceptance, sendLead, bindLeadForm
@@ -84,7 +84,7 @@ test('payload keeps only the eight text fields and fixed provider controls', () 
   assert.deepEqual(Object.keys(payload), [...FIELD_NAMES, '_subject']);
   assert.equal(payload.first_name, 'Test');
   assert.equal(payload.email, 'customer@example.com');
-  assert.equal(payload._subject, 'New Free Estimate Request — Alaska Handyman Services');
+  assert.equal(payload._subject, 'New Free Estimate Request - Alaska Handyman Services');
   assert.equal(buildPayload(sampleData({ message: new Blob(['not text']) })).message, '');
 });
 
@@ -197,7 +197,7 @@ test('failure preserves all input and enables a manual retry; success follows on
 test('timeout exposes recovery without erasing the request', async () => {
   const timeout = fixture(async () => new Promise(() => {}), { timeoutMs: 5 });
   await timeout.submit();
-  assert.match(timeout.ui.errorMessage.textContent, /cannot tell whether/);
+  assert.match(timeout.ui.errorMessage.textContent, /too long to respond/);
   assert.equal(timeout.form.resets, 0);
   assert.equal(timeout.button.disabled, false);
 });
