@@ -347,84 +347,54 @@
     }
   });
 
-  // ─── Thank-You Modal ──────────────────────────────────────────────────────
-  // Opens when lead-form.js reveals #formSuccess (MutationObserver — no changes
-  // to lead-form.js required; all existing tests continue to pass).
-  const tyModal = document.getElementById('tyModal');
-  const tyClose = document.getElementById('tyModalClose');
-  const tyDone  = document.getElementById('tyModalDone');
-  const formSuccessEl = document.getElementById('formSuccess');
-  let tyPreviousFocus = null;
+  // ── Thank-You Modal ──────────────────────────────────────────────────────
+  // Opens automatically when lead-form.js reveals #formSuccess.
+  // Wired via MutationObserver so lead-form.js stays untouched.
+  (function () {
+    var tyModal   = document.getElementById('tyModal');
+    var tyClose   = document.getElementById('tyModalClose');
+    var tyDone    = document.getElementById('tyModalDone');
+    var formSuccessEl = document.getElementById('formSuccess');
 
-  function openTyModal() {
-    if (!tyModal) return;
-    tyPreviousFocus = document.activeElement;
-    tyModal.classList.add('ty-open');
-    tyModal.removeAttribute('aria-hidden');
-    document.body.style.overflow = 'hidden';
-    // Focus the close button for keyboard and AT users.
-    const firstFocusable = tyModal.querySelector('button, a[href], [tabindex="0"]');
-    if (firstFocusable) firstFocusable.focus();
-    // Inert the rest of the page while modal is open.
-    Array.from(document.body.children).forEach(el => {
-      if (el !== tyModal) el.inert = true;
-    });
-  }
+    if (!tyModal) return; // page has no form/modal
 
-  function closeTyModal() {
-    if (!tyModal) return;
-    tyModal.classList.remove('ty-open');
-    tyModal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    Array.from(document.body.children).forEach(el => { el.inert = false; });
-    if (tyPreviousFocus && tyPreviousFocus.isConnected) {
-      tyPreviousFocus.focus({ preventScroll: true });
+    function openModal() {
+      tyModal.classList.add('ty-open');
+      tyModal.removeAttribute('aria-hidden');
+      document.body.style.overflow = 'hidden';
+      var first = tyModal.querySelector('button, a[href]');
+      if (first) first.focus();
     }
-  }
 
-  if (tyClose) tyClose.addEventListener('click', closeTyModal);
-  if (tyDone)  tyDone.addEventListener('click', closeTyModal);
-
-  // Close on overlay click (not on modal card click).
-  if (tyModal) {
-    tyModal.addEventListener('click', event => {
-      if (event.target === tyModal) closeTyModal();
-    });
-  }
-
-  // Close on Escape key.
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && tyModal && tyModal.classList.contains('ty-open')) {
-      event.preventDefault();
-      closeTyModal();
+    function closeModal() {
+      tyModal.classList.remove('ty-open');
+      tyModal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
     }
-  });
 
-  // Trap Tab inside the modal.
-  if (tyModal) {
-    tyModal.addEventListener('keydown', event => {
-      if (event.key !== 'Tab') return;
-      const focusables = Array.from(tyModal.querySelectorAll(
-        'button:not([disabled]), a[href], [tabindex="0"]'
-      )).filter(el => el.getClientRects().length > 0);
-      if (!focusables.length) return;
-      const first = focusables[0];
-      const last  = focusables[focusables.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
+    // Button: Done — Got It!
+    if (tyClose) tyClose.addEventListener('click', closeModal);
+    if (tyDone)  tyDone.addEventListener('click', closeModal);
+
+    // Click on dark overlay (outside the card) also closes
+    tyModal.addEventListener('click', function (e) {
+      if (e.target === tyModal) closeModal();
+    });
+
+    // Escape key closes
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && tyModal.classList.contains('ty-open')) {
+        e.preventDefault();
+        closeModal();
       }
     });
-  }
 
-  // Watch #formSuccess — open the modal as soon as lead-form.js reveals it.
-  if (formSuccessEl && tyModal && 'MutationObserver' in window) {
-    const observer = new MutationObserver(() => {
-      if (!formSuccessEl.hidden) openTyModal();
-    });
-    observer.observe(formSuccessEl, { attributes: true, attributeFilter: ['hidden', 'style'] });
-  }
+    // Watch formSuccess becoming visible → open the modal
+    if (formSuccessEl && 'MutationObserver' in window) {
+      var obs = new MutationObserver(function () {
+        if (!formSuccessEl.hidden) openModal();
+      });
+      obs.observe(formSuccessEl, { attributes: true, attributeFilter: ['hidden', 'style'] });
+    }
+  }());
 })();
