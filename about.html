@@ -300,18 +300,7 @@
       </form>
       <div class="form-success" id="formSuccess" role="status" tabindex="-1" hidden><h3>Your request has been sent.</h3><p>Thank you for getting in touch. We'll follow up using the contact details you provided.</p></div>
 
-<!-- THANK-YOU MODAL -->
-<div class="ty-modal-overlay" id="tyModal" role="dialog" aria-modal="true" aria-labelledby="tyModalTitle" aria-hidden="true">
-  <div class="ty-modal">
-    <button class="ty-modal-close" id="tyModalClose" aria-label="Close this message">✕</button>
-    <div class="ty-icon-wrap" aria-hidden="true">
-      <svg class="ty-check-svg" viewBox="0 0 52 52" aria-hidden="true"><polyline points="14,26 22,34 38,18"/></svg>
-    </div>
-    <span class="ty-label-pill"><span class="ty-label-dot" aria-hidden="true"></span>Request Received</span>
-    <h2 id="tyModalTitle">Thank You — We'll Be In Touch!</h2>
-    <p class="ty-modal-sub">Your free estimate request has been received by Alaska Handyman Services. Our Anchorage team will review your project details and follow up promptly.</p>
-    <div class="ty-next-steps" aria-label="What happens next">
-      <div class="ty-step"><span class="ty-step-num" aria-hidden="true">1</span><span><strong>Review</strong> — We'll review your service request and project notes right away.</span></div>
+
       <div class="ty-step"><span class="ty-step-num" aria-hidden="true">2</span><span><strong>Contact</strong> — Expect a call or email to confirm details and schedule your visit.</span></div>
       <div class="ty-step"><span class="ty-step-num" aria-hidden="true">3</span><span><strong>Estimate</strong> — You'll receive a 100% free, no-obligation written estimate.</span></div>
     </div>
@@ -402,5 +391,26 @@
 </footer>
 
 <script src="main.js"></script>
-</body>
+<!-- THANK-YOU MODAL — direct body child so inert logic never blocks it -->
+<div class="ty-modal-overlay" id="tyModal" role="dialog" aria-modal="true" aria-labelledby="tyModalTitle" aria-hidden="true">
+  <div class="ty-modal">
+    <button class="ty-modal-close" id="tyModalClose" aria-label="Close this message">&times;</button>
+    <div class="ty-icon-wrap" aria-hidden="true">
+      <svg class="ty-check-svg" viewBox="0 0 52 52" aria-hidden="true"><polyline points="14,26 22,34 38,18"/></svg>
+    </div>
+    <span class="ty-label-pill"><span class="ty-label-dot" aria-hidden="true"></span>Request Received</span>
+    <h2 id="tyModalTitle">Thank You &mdash; We'll Be In Touch!</h2>
+    <p class="ty-modal-sub">Your free estimate request has been received by Alaska Handyman Services. Our Anchorage team will review your project details and follow up promptly.</p>
+    <div class="ty-next-steps" aria-label="What happens next">
+      <div class="ty-step"><span class="ty-step-num" aria-hidden="true">1</span><span><strong>Review</strong> &mdash; We'll review your service request and project notes right away.</span></div>
+      <div class="ty-step"><span class="ty-step-num" aria-hidden="true">2</span><span><strong>Contact</strong> &mdash; Expect a call or email to confirm details and schedule your visit.</span></div>
+      <div class="ty-step"><span class="ty-step-num" aria-hidden="true">3</span><span><strong>Estimate</strong> &mdash; You'll receive a 100% free, no-obligation written estimate.</span></div>
+    </div>
+    <div class="ty-modal-actions">
+      <button class="ty-btn-primary" id="tyModalDone">Done &mdash; Got It!</button>
+      <a href="tel:+19077448725" class="ty-btn-secondary">&#128222; Call Us Now</a>
+    </div>
+    <p class="ty-modal-footer-note">Need to reach us sooner? Email us at <a href="mailto:alaskahandymanservices907@gmail.com">alaskahandymanservices907@gmail.com</a> or call <a href="tel:+19077448725">(907) 744-8725</a>.</p>
+  </div>
+</div></body>
 </html>
