@@ -347,50 +347,77 @@
     }
   });
 
-  // ── Thank-You Modal ──────────────────────────────────────────────────────
-  // Opens automatically when lead-form.js reveals #formSuccess.
-  // Wired via MutationObserver so lead-form.js stays untouched.
+    // ── Thank-You Modal ───────────────────────────────────────────────────────
+  // Injected entirely via JS — zero static HTML in the page, so it can never
+  // appear in the source or render below the footer in any browser mode.
   (function () {
-    var tyModal   = document.getElementById('tyModal');
-    var tyClose   = document.getElementById('tyModalClose');
-    var tyDone    = document.getElementById('tyModalDone');
     var formSuccessEl = document.getElementById('formSuccess');
+    if (!formSuccessEl) return; // page has no lead form
 
-    if (!tyModal) return; // page has no form/modal
+    // Build the modal and append it to body
+    var overlay = document.createElement('div');
+    overlay.className = 'ty-modal-overlay';
+    overlay.id = 'tyModal';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'tyModalTitle');
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = [
+      '<div class="ty-modal">',
+        '<button class="ty-modal-close" id="tyModalClose" aria-label="Close this message">&times;</button>',
+        '<div class="ty-icon-wrap" aria-hidden="true">',
+          '<svg class="ty-check-svg" viewBox="0 0 52 52" aria-hidden="true"><polyline points="14,26 22,34 38,18"/></svg>',
+        '</div>',
+        '<span class="ty-label-pill"><span class="ty-label-dot" aria-hidden="true"></span>Request Received</span>',
+        '<h2 id="tyModalTitle">Thank You &mdash; We\'ll Be In Touch!</h2>',
+        '<p class="ty-modal-sub">Your free estimate request has been received by Alaska Handyman Services. Our Anchorage team will review your project details and follow up promptly.</p>',
+        '<div class="ty-next-steps" aria-label="What happens next">',
+          '<div class="ty-step"><span class="ty-step-num" aria-hidden="true">1</span><span><strong>Review</strong> &mdash; We\'ll review your service request and project notes right away.</span></div>',
+          '<div class="ty-step"><span class="ty-step-num" aria-hidden="true">2</span><span><strong>Contact</strong> &mdash; Expect a call or email to confirm details and schedule your visit.</span></div>',
+          '<div class="ty-step"><span class="ty-step-num" aria-hidden="true">3</span><span><strong>Estimate</strong> &mdash; You\'ll receive a 100% free, no-obligation written estimate.</span></div>',
+        '</div>',
+        '<div class="ty-modal-actions">',
+          '<button class="ty-btn-primary" id="tyModalDone">Done &mdash; Got It!</button>',
+          '<a href="tel:+19077448725" class="ty-btn-secondary">&#128222; Call Us Now</a>',
+        '</div>',
+        '<p class="ty-modal-footer-note">Need to reach us sooner? Email us at <a href="mailto:alaskahandymanservices907@gmail.com">alaskahandymanservices907@gmail.com</a> or call <a href="tel:+19077448725">(907) 744-8725</a>.</p>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(overlay);
+
+    var tyClose = document.getElementById('tyModalClose');
+    var tyDone  = document.getElementById('tyModalDone');
 
     function openModal() {
-      tyModal.classList.add('ty-open');
-      tyModal.removeAttribute('aria-hidden');
+      overlay.classList.add('ty-open');
+      overlay.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
-      var first = tyModal.querySelector('button, a[href]');
+      var first = overlay.querySelector('button, a[href]');
       if (first) first.focus();
     }
 
     function closeModal() {
-      tyModal.classList.remove('ty-open');
-      tyModal.setAttribute('aria-hidden', 'true');
+      overlay.classList.remove('ty-open');
+      overlay.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
     }
 
-    // Button: Done — Got It!
     if (tyClose) tyClose.addEventListener('click', closeModal);
     if (tyDone)  tyDone.addEventListener('click', closeModal);
 
-    // Click on dark overlay (outside the card) also closes
-    tyModal.addEventListener('click', function (e) {
-      if (e.target === tyModal) closeModal();
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeModal();
     });
 
-    // Escape key closes
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && tyModal.classList.contains('ty-open')) {
+      if (e.key === 'Escape' && overlay.classList.contains('ty-open')) {
         e.preventDefault();
         closeModal();
       }
     });
 
     // Watch formSuccess becoming visible → open the modal
-    if (formSuccessEl && 'MutationObserver' in window) {
+    if ('MutationObserver' in window) {
       var obs = new MutationObserver(function () {
         if (!formSuccessEl.hidden) openModal();
       });
